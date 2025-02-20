@@ -1,353 +1,3 @@
-<<<<<<< HEAD
-import json
-import numpy as np
-import pandas as pd
-import joblib
-import librosa
-import os
-from flask import Flask, request, jsonify, render_template
-
-from flask import Flask, Response, render_template, jsonify, request, send_file
-import cv2
-import mediapipe as mp
-import time
-import threading
-
-questions = {
-    1: "Does your child enjoy being swung, bounced on your knee, etc.?",
-    2: "Does your child take an interest in other children?",  # Critical
-    3: "Does your child like climbing on things, such as up stairs?",
-    4: "Does your child enjoy playing peek-a-boo/hide-and-seek?",
-    5: "Does your child ever pretend, for example, to talk on the phone or take care of a doll?",
-    6: "Does your child ever use his/her index finger to point, to ask for something?",
-    7: "Does your child ever use his/her index finger to point, to indicate interest in something?",  # Critical
-    8: "Can your child play properly with small toys (e.g. cars or blocks) without just mouthing, fiddling, or dropping them?",
-    9: "Does your child ever bring objects over to you (parent) to show you something?",  # Critical
-    10: "Does your child look you in the eye for more than a second or two?",
-    11: "Does your child ever seem oversensitive to noise? (e.g., plugging ears)? (REVERSE)",
-    12: "Does your child smile in response to your face or your smile?",
-    13: "Does your child imitate you? (e.g., you make a face—will your child imitate it?)",  # Critical
-    14: "Does your child respond to his/her name when you call?",  # Critical
-    15: "If you point at a toy across the room, does your child look at it?",  # Critical
-    16: "Does your child walk?",
-    17: "Does your child look at things you are looking at?",
-    18: "Does your child make unusual finger movements near his/her face? (REVERSE)",
-    19: "Does your child try to attract your attention to his/her own activity?",
-    20: "Have you ever wondered if your child is deaf? (REVERSE)",
-    21: "Does your child understand what people say?",
-    22: "Does your child sometimes stare at nothing or wander with no purpose? (REVERSE)",
-    23: "Does your child look at your face to check your reaction when faced with something unfamiliar?"
-}
-
-# Critical questions
-critical_items = {2, 7, 9, 13, 14, 15}
-
-# Reverse scored items
-reverse_items = {11, 18, 20, 22}
-
-# Load models and scalers
-model = joblib.load("baby_cry_classifier.pkl")
-scaler = joblib.load("scaler.pkl")
-selector = joblib.load("feature_selector.pkl")
-
-# Load feature names from JSON
-with open("baby_cry_features.json", "r") as f:
-    data = json.load(f)
-
-df = pd.DataFrame(data)
-df.drop(columns=["Cry_Audio_File", "Cry_Reason"], inplace=True)
-feature_names = df.drop(columns=["Label"]).columns.tolist()
-
-app = Flask(__name__)
-
-# Feature Extraction Function
-def extract_features(audio_file):
-    try:
-        y, sr = librosa.load(audio_file, sr=None)
-        
-        features = {
-            "Amplitude_Envelope_Mean": np.mean(np.abs(y)),
-            "RMS_Mean": np.mean(librosa.feature.rms(y=y)),
-            "ZCR_Mean": np.mean(librosa.feature.zero_crossing_rate(y=y)),
-            "STFT_Mean": np.mean(np.abs(librosa.stft(y))),
-            "SC_Mean": np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)),
-            "SBAN_Mean": np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr)),
-            "SCON_Mean": np.mean(librosa.feature.spectral_contrast(y=y, sr=sr, fmin=50.0, n_bands=4)),
-            "MelSpec": np.mean(librosa.feature.melspectrogram(y=y, sr=sr))
-        }
-
-        # Extract MFCCs
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        for i in range(13):
-            features[f"MFCCs{i+1}"] = np.mean(mfccs[i])
-
-        delta_mfccs = librosa.feature.delta(mfccs)
-        for i in range(13):
-            features[f"delMFCCs{i+1}"] = np.mean(delta_mfccs[i])
-
-        delta2_mfccs = librosa.feature.delta(mfccs, order=2)
-        for i in range(13):
-            features[f"del2MFCCs{i+1}"] = np.mean(delta2_mfccs[i])
-
-        return features
-    except Exception as e:
-        print(f"Feature Extraction Error: {e}")
-        return None
-
-
-# Prediction Function
-def predict_baby_cry(new_cry_features):
-    try:
-        new_data = pd.DataFrame([new_cry_features], columns=feature_names)
-
-        # Normalize features
-        new_data_scaled = scaler.transform(new_data)
-
-        # Select features
-        new_data_selected = selector.transform(new_data_scaled)
-
-        # Predict
-        prediction = model.predict(new_data_selected)
-
-        # Map prediction to cry type
-        cry_types = {
-            0: "Belly Pain",
-            1: "Burping",
-            2: "Discomfort",
-            3: "Hungry",
-            4: "Tired"
-        }
-        predicted_label = prediction[0]
-        predicted_cry_type = cry_types.get(predicted_label, "Unknown")
-
-        return predicted_cry_type
-    except Exception as e:
-        print(f"Prediction Error: {e}")
-        return "Error in Prediction"
-
-# Initialize MediaPipe Face Mesh
-mp_face_mesh = mp.solutions.face_mesh
-face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, refine_landmarks=True)
-
-# Global variables for gaze tracking
-right_gaze_frames = 0
-total_frames = 0
-is_tracking = False
-start_time = None
-capture_thread = None
-
-
-def get_gaze_direction(landmarks):
-    """Determine face direction based on facial landmarks."""
-    left_eye = landmarks[33]  # Left eye outer corner
-    right_eye = landmarks[263]  # Right eye outer corner
-    nose = landmarks[1]  # Nose tip
-
-    eye_center_x = (left_eye.x + right_eye.x) / 2
-
-    if nose.x < eye_center_x - 0.02:  # Looking Right
-        return "Looking Right"
-    elif nose.x > eye_center_x + 0.02:  # Looking Left"
-        return "Looking Left"
-    else:
-        return "Looking Center"
-
-
-def process_gaze():
-    """Process gaze tracking in a separate thread."""
-    global right_gaze_frames, total_frames, is_tracking
-
-    cap = cv2.VideoCapture(0)
-
-    while is_tracking:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-
-        total_frames += 1
-
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = face_mesh.process(frame_rgb)
-
-        if results.multi_face_landmarks:
-            for face_landmarks in results.multi_face_landmarks:
-                landmarks = {i: lm for i, lm in enumerate(face_landmarks.landmark)}
-                direction = get_gaze_direction(landmarks)
-
-                if direction == "Looking Right":
-                    right_gaze_frames += 1
-
-        time.sleep(0.03)  # Reduce CPU usage
-
-    cap.release()
-# Flask Routes
-
-@app.route("/")  # Home page
-def main_page():
-    return render_template("main_page.html")
-
-@app.route("/subpage")
-def sub_page():
-    return render_template("subpage.html")
-
-@app.route("/cu")
-def cu():
-    return render_template("cu.html")
-
-@app.route("/detcry")
-def detcry():
-    return render_template("detcry.html")
-
-@app.route("/at")
-def at():
-    return render_template("at.html")
-
-@app.route("/agt")
-def agt():
-    return render_template("agt.html")
-
-@app.route("/asc")
-def asc():
-    return render_template("asc.html",questions=questions)
-
-@app.route("/results", methods=["POST"])
-def results():
-    responses = request.form
-    total_score = 0
-    critical_score = 0
-
-    for num, response in responses.items():
-        num = int(num)
-        is_failed = (response == "no" and num not in reverse_items) or (response == "yes" and num in reverse_items)
-
-        if is_failed:
-            total_score += 1
-            if num in critical_items:
-                critical_score += 1
-
-    # Determine risk level
-    result_message = f"Total Score: {total_score} | Critical Score: {critical_score}<br>"
-
-    follow_up_needed = False
-
-    if total_score >= 10:
-        result_message += "<b style='color: red;'>🚨 High Risk: Immediate referral to a specialist is needed.</b>"
-    elif total_score >= 5:
-        follow_up_needed = True
-        result_message += "<b style='color: orange;'>⚠ Moderate Risk: Follow-Up Interview required.</b>"
-        if critical_score >= 2 or total_score >= 3:
-            result_message += "<br>🔎 Follow-Up suggests increased ASD risk. Referral recommended."
-        else:
-            result_message += "<br>✅ Follow-Up suggests no immediate concern."
-    else:
-        result_message += "<b style='color: green;'>✅ Low Risk: No further action needed.</b>"
-
-    return render_template("result.html", result=result_message, follow_up_needed=follow_up_needed)
-
-#cry det paths
-@app.route("/predict", methods=["POST"])
-def predict():
-    if "audio" not in request.files:
-        return jsonify({"error": "No file part"}), 400
-
-    audio_file = request.files["audio"]
-
-    if audio_file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
-
-    # Save file temporarily
-    temp_path = "temp_audio.wav"
-    audio_file.save(temp_path)
-
-    # Extract features
-    extracted_features = extract_features(temp_path)
-    
-    if extracted_features is None:
-        return jsonify({"error": "Feature extraction failed"}), 500
-
-    # Predict the crying type
-    predicted_cry_type = predict_baby_cry(extracted_features)
-
-    # Remove temp file
-    os.remove(temp_path)
-
-    return jsonify({"Crying Type": predicted_cry_type})
-
-@app.route('/video_feed')
-def video_feed():
-    """Return the video stream."""
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
-@app.route('/start_test', methods=['POST'])
-def start_test():
-    """Start gaze tracking."""
-    global right_gaze_frames, total_frames, is_tracking, capture_thread, start_time
-
-    if is_tracking:
-        return jsonify({"message": "Test already running!"})
-
-    # Reset counters
-    right_gaze_frames = 0
-    total_frames = 0
-    is_tracking = True
-    start_time = time.time()
-
-    # Start gaze processing in a separate thread
-    capture_thread = threading.Thread(target=process_gaze)
-    capture_thread.start()
-
-    return jsonify({"message": "Test started!"})
-
-#geometric paths
-@app.route('/stop_test', methods=['POST'])
-def stop_test():
-    """Stop gaze tracking and return results."""
-    global is_tracking
-
-    if not is_tracking:
-        return jsonify({"message": "Test not running!"})
-
-    is_tracking = False  # Stop tracking
-
-    if total_frames == 0:
-        return jsonify({"error": "No data recorded"})
-
-    right_gaze_percentage = (right_gaze_frames / total_frames) * 100
-    result = {
-        "right_gaze_percentage": round(right_gaze_percentage, 2),
-        "autism_indicator": "Possible Autism Indicator" if right_gaze_percentage > 70 else "Normal"
-    }
-
-    return jsonify(result)
-
-
-@app.route('/left_video')
-def left_video():
-    """Serve the left side video."""
-    return send_file("static/left.mp4", mimetype="video/mp4")
-
-
-@app.route('/right_video')
-def right_video():
-    """Serve the right side video."""
-    return send_file("static/right.mp4", mimetype="video/mp4")
-
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
-
-
-
-
-
-
-
-
-
-=======
 import datetime
 import json
 import numpy as np
@@ -367,7 +17,7 @@ import requests
 import random
 import logging
 from functools import wraps
-
+from googletrans import Translator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -869,6 +519,10 @@ def format_as_bullets(text):
 def talk():
     return render_template("talk.html")
 
+@app.route("/cpd")
+def cpd():
+    return render_template("cpd.html")
+
 # API Endpoint for chatbot
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -880,6 +534,279 @@ def chat():
     bot_response = chatbot_response(user_input)
     return jsonify({"response": bot_response})
 
+def load_ngos():
+    file_path = "output.json"
+    if not os.path.exists(file_path):
+        return []
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        try:
+            data = json.load(file)
+            return data
+        except json.JSONDecodeError:
+            return []  # If JSON is invalid, return an empty list
+        
+
+@app.route("/sngo", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        city = request.form.get("city", "").strip().lower()
+        language = request.form.get("language", "en")  # Get the selected language
+
+        if not name or not city:
+            return render_template("sngo.html", error="Please enter both name and city!")
+
+        all_ngos = load_ngos()
+
+        # Filter NGOs by city
+        ngos = [
+            ngo for ngo in all_ngos 
+            if isinstance(ngo.get("District"), str) and ngo["District"].strip().lower() == city
+        ]
+
+        # Translate NGO details to the selected language
+        translated_ngos = []
+        for ngo in ngos:
+            translated_ngo = {
+                "NGO Name": translate_text(ngo["NGO Name"], language),
+                "NGO Head Name": translate_text(ngo["NGO Head Name"], language),
+                "Address": translate_text(ngo["Address"], language),
+                "Mobile": ngo["Mobile"],  # No translation needed for numbers
+                "Email id": ngo["Email id"],  # No translation needed for emails
+            }
+            translated_ngos.append(translated_ngo)
+
+        # Render the NGO results page with the translated NGOs and selected language
+        return render_template("ngor.html", name=name, city=city.title(), ngos=translated_ngos, language=language)
+
+    return render_template("sngo.html")
+
+@app.route("/ngor", methods=["POST"])
+def ngo_results():
+    name = request.form.get("name", "").strip()
+    city = request.form.get("city", "").strip().lower()
+    language = request.form.get("language", "en")  # Get the selected language
+
+    if not name or not city:
+        return render_template("sngo.html", error="Please enter both name and city!")
+
+    all_ngos = load_ngos()
+
+    # Filter NGOs by city
+    ngos = [
+        ngo for ngo in all_ngos 
+        if isinstance(ngo.get("District"), str) and ngo["District"].strip().lower() == city
+    ]
+
+    # Translate NGO details to the selected language
+    translated_ngos = []
+    for ngo in ngos:
+        # Ensure all fields are translated
+        translated_ngo = {
+            "NGO Name": translate_text(ngo.get("NGO Name", ""), language),
+            "NGO Head Name": translate_text(ngo.get("NGO Head Name", ""), language),
+            "Address": translate_text(ngo.get("Address", ""), language),
+            "Mobile": ngo.get("Mobile", ""),  # No translation needed for numbers
+            "Email id": ngo.get("Email id", ""),  # No translation needed for emails
+        }
+        translated_ngos.append(translated_ngo)
+
+    # Render the NGO results page with the translated NGOs and selected language
+    return render_template("ngor.html", name=name, city=city.title(), ngos=translated_ngos, language=language)
+
+def translate_text(text, lang):
+    """
+    Translate text to the specified language using Google Translate API.
+    """
+    if lang == "en":
+        return text  # No translation needed for English
+    try:
+        translation = translator.translate(text, dest=lang)
+        return translation.text
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return text  # Return original text if translation fails
+
+
+# cp detetction
+mp_holistic = mp.solutions.holistic
+mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp.solutions.hands
+
+# Global Variables
+cap = None
+movement_data = []
+running = False
+results_output = {}
+frame_global = None
+frame_lock = threading.Lock()  # Lock for thread-safe access to frame_global
+
+def mediapipe_detection(image, model):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image.flags.writeable = False
+    results = model.process(image)
+    image.flags.writeable = True
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    return image, results
+
+def process_frame():
+    global cap, movement_data, running, results_output
+    hands = mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+    pose = mp_pose.Pose(static_image_mode=False, model_complexity=1, smooth_landmarks=True)
+
+    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
+        while running and cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to grab frame")
+                break
+
+            # Perform MediaPipe detection (in the background, not displayed)
+            _, results = mediapipe_detection(frame, holistic)
+            hand_results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+            if results.pose_landmarks:
+                landmarks = results.pose_landmarks.landmark
+                keypoints = {mp_pose.PoseLandmark(i).name: (lm.x, lm.y) for i, lm in enumerate(landmarks)}
+
+                left_shoulder, right_shoulder = keypoints['LEFT_SHOULDER'], keypoints['RIGHT_SHOULDER']
+                left_hip, right_hip = keypoints['LEFT_HIP'], keypoints['RIGHT_HIP']
+                left_knee, right_knee = keypoints['LEFT_KNEE'], keypoints['RIGHT_KNEE']
+                left_wrist, right_wrist = keypoints['LEFT_WRIST'], keypoints['RIGHT_WRIST']
+
+                shoulder_diff = abs(left_shoulder[1] - right_shoulder[1])
+                hip_diff = abs(left_hip[1] - right_hip[1])
+                knee_diff = abs(left_knee[1] - right_knee[1])
+
+                is_asymmetrical = shoulder_diff > 0.1 or hip_diff > 0.1
+                is_scissoring = abs(left_hip[0] - right_hip[0]) < 0.05 and knee_diff > 0.15
+
+                is_fisting = False
+                if hand_results.multi_hand_landmarks:
+                    for hand_landmarks in hand_results.multi_hand_landmarks:
+                        thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+                        index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                        middle_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+                        ring_tip = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP]
+                        pinky_tip = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP]
+
+                        finger_distances = [
+                            abs(index_tip.x - middle_tip.x),
+                            abs(middle_tip.x - ring_tip.x),
+                            abs(ring_tip.x - pinky_tip.x),
+                            abs(pinky_tip.x - thumb_tip.x)
+                        ]
+
+                        if all(dist < 0.03 for dist in finger_distances):
+                            is_fisting = True
+
+                movement_data.append({
+                    'asymmetry': is_asymmetrical,
+                    'scissoring': is_scissoring,
+                    'fisting': is_fisting
+                })
+
+            # Update the global frame with the raw video feed (no landmarks)
+            with frame_lock:
+                _, buffer = cv2.imencode('.jpg', frame)
+                frame_global = buffer.tobytes()
+
+            time.sleep(0.01)
+
+    calculate_results()
+    cap.release()
+    hands.close()
+    pose.close()
+
+def calculate_results():
+    global movement_data, results_output
+    total_frames = len(movement_data)
+
+    if total_frames == 0:
+        results_output = {"error": "No frames captured."}
+        return
+
+    asymmetry_count = sum(d['asymmetry'] for d in movement_data)
+    scissoring_count = sum(d['scissoring'] for d in movement_data)
+    fisting_count = sum(d['fisting'] for d in movement_data)
+
+    asymmetry_percentage = (asymmetry_count / total_frames) * 100
+    scissoring_percentage = (scissoring_count / total_frames) * 100
+    fisting_percentage = (fisting_count / total_frames) * 100
+
+    risk_signs = sum([
+        asymmetry_percentage > 70,
+        scissoring_percentage > 20,
+        fisting_percentage > 75
+    ])
+
+    if risk_signs >= 1:
+        message = "Possible Signs of Cerebral Palsy Detected. Consult a doctor for further evaluation."
+    else:
+        message = "No major risk detected. Continue monitoring your child's development."
+
+    results_output = {
+        "asymmetry_percentage": f"{asymmetry_percentage:.2f}%",
+        "scissoring_percentage": f"{scissoring_percentage:.2f}%",
+        "fisting_percentage": f"{fisting_percentage:.2f}%",
+        "message": message
+    }
+
+@app.route('/video_feed_for_cpd')
+def video_feed_for_cpd():
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/start_cpd', methods=['POST'])
+def start_cpd():
+    global cap, running, movement_data, results_output
+    if not running:
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            return jsonify({"error": "Could not open video device."})
+        movement_data = []
+        running = True
+        threading.Thread(target=process_frame).start()
+        return jsonify({"message": "Detection started."})
+    else:
+        return jsonify({"message": "Detection already running."})
+
+@app.route('/stop_cpd', methods=['POST'])
+def stop_cpd():
+    global running, results_output
+    running = False
+    return jsonify(results_output)
+
+def generate_frames():
+    global frame_global, running, frame_lock
+    while running:
+        with frame_lock:
+            if frame_global is not None:
+                try:
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_global + b'\r\n')
+                except Exception as e:
+                    print(f"Error generating frame: {e}")
+                    break
+
+translator = Translator()
+
+@app.route('/translate', methods=['POST'])
+def translate():
+    data = request.json
+    lang = data.get('lang', 'en')
+
+    # Translate the text
+    translated_text = {
+        'title': translator.translate('Find NGOs That Can Help', dest=lang).text,
+        'description': translator.translate('Enter your details to find NGOs that support underprivileged families.', dest=lang).text,
+        'name_label': translator.translate('Your Name', dest=lang).text,
+        'city_label': translator.translate('Enter Your District/City', dest=lang).text,
+        'button_text': translator.translate('Search NGOs', dest=lang).text,
+    }
+
+    return jsonify({'translated_text': translated_text})
+
 if __name__ == "__main__":
     app.run(debug=True)
->>>>>>> 7083005 (backend implmenetaions and ui changes comunity feature contact up page updation)

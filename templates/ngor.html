@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGO Results</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Background Styling */
+        body {
+            background: linear-gradient(90deg, #e6f3ff, #f0f9ff);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            position: relative;
+            overflow: hidden;
+            cursor: default;
+            padding: 20px; /* Add padding to body to prevent touching edges */
+        }
+
+        /* Background elements */
+        .bg-element {
+            position: absolute;
+            opacity: 0.1;
+            z-index: -1;
+            animation: float 15s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-20px) rotate(5deg); }
+            50% { transform: translateY(0) rotate(0deg); }
+            75% { transform: translateY(20px) rotate(-5deg); }
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 550px;
+            width: 90%;
+            position: relative;
+            z-index: 1;
+            max-height: 90vh; /* Limit container height */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin-bottom: 15px;
+            color: #007bff;
+        }
+
+        .ngo-list {
+            text-align: left;
+            margin-top: 10px;
+            overflow-y: auto; /* Enable vertical scrolling */
+            max-height: 400px; /* Adjust as needed */
+            min-height: 100px; /* Minimum height */
+            padding-right: 10px; /* Add padding to prevent content from touching scrollbar */
+            background: #e9e9e9; /* Slightly darker background */
+            border-radius: 8px; /* Rounded edges */
+            padding: 15px; /* Inner padding */
+        }
+
+        /* Custom Scrollbar */
+        .ngo-list::-webkit-scrollbar {
+            width: 8px; /* Width of the scrollbar */
+        }
+
+        .ngo-list::-webkit-scrollbar-track {
+            background: #f1f1f1; /* Light track */
+            border-radius: 4px; /* Rounded edges */
+        }
+
+        .ngo-list::-webkit-scrollbar-thumb {
+            background: #3292ff; /* Scrollbar thumb */
+            border-radius: 4px; /* Rounded edges */
+        }
+
+        .ngo-list::-webkit-scrollbar-thumb:hover {
+            background: #1f67ba; /* Darker thumb on hover */
+        }
+
+        .ngo-list li {
+            list-style: none;
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            transition: 0.3s;
+            word-break: break-word; /* Allow wrapping of long words */
+            white-space: normal; /* Allow text to wrap */
+            overflow: hidden; /* Hide overflow */
+        }
+
+        .ngo-list li strong {
+            display: inline-block;
+            min-width: 80px; /* Ensure consistent spacing for labels */
+        }
+
+        a {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 10px 15px;
+            text-decoration: none;
+            color: white;
+            background: #007bff;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        a:hover {
+            background: #0056b3;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div id="bg-elements"></div>
+
+    <div class="container">
+        <!-- Display heading in the selected language -->
+        <h1>
+            {% if language == 'hi' %}
+                {{ city }} में एनजीओ
+            {% elif language == 'ta' %}
+                {{ city }} இல் என்.ஜி.ஓ
+            {% elif language == 'te' %}
+                {{ city }} లో ఎన్.జి.ఓ
+            {% elif language == 'kn' %}
+                {{ city }} ನಲ್ಲಿ ಎನ್ಜಿಒಗಳು
+            {% elif language == 'ml' %}
+                {{ city }} ലെ എൻജിഒകൾ
+            {% elif language == 'bn' %}
+                {{ city }} এ এনজিও
+            {% elif language == 'mr' %}
+                {{ city }} मधील एनजीओ
+            {% elif language == 'gu' %}
+                {{ city }} માં એનજીઓ
+            {% elif language == 'pa' %}
+                {{ city }} ਵਿੱਚ ਐਨਜੀਓ
+            {% elif language == 'or' %}
+                {{ city }} ରେ ଏନଜିଓ
+            {% else %}
+                NGOs in {{ city }}
+            {% endif %}
+        </h1>
+    
+        {% if ngos %}
+            <ul class="ngo-list">
+                {% for ngo in ngos %}
+                    <li>
+                        <!-- Display translated NGO details -->
+                        <strong>
+                            {% if language == 'hi' %}
+                                नाम:
+                            {% elif language == 'ta' %}
+                                பெயர்:
+                            {% elif language == 'te' %}
+                                పేరు:
+                            {% elif language == 'kn' %}
+                                ಹೆಸರು:
+                            {% elif language == 'ml' %}
+                                പേര്:
+                            {% elif language == 'bn' %}
+                                নাম:
+                            {% elif language == 'mr' %}
+                                नाव:
+                            {% elif language == 'gu' %}
+                                નામ:
+                            {% elif language == 'pa' %}
+                                ਨਾਮ:
+                            {% elif language == 'or' %}
+                                ନାମ:
+                            {% else %}
+                                Name:
+                            {% endif %}
+                        </strong> {{ ngo["NGO Name"] }} <br>
+    
+                        <strong>
+                            {% if language == 'hi' %}
+                                प्रमुख:
+                            {% elif language == 'ta' %}
+                                தலைவர்:
+                            {% elif language == 'te' %}
+                                ప్రధాన:
+                            {% elif language == 'kn' %}
+                                ಮುಖ್ಯಸ್ಥ:
+                            {% elif language == 'ml' %}
+                                തലവൻ:
+                            {% elif language == 'bn' %}
+                                প্রধান:
+                            {% elif language == 'mr' %}
+                                प्रमुख:
+                            {% elif language == 'gu' %}
+                                મુખ્ય:
+                            {% elif language == 'pa' %}
+                                ਮੁਖੀ:
+                            {% elif language == 'or' %}
+                                ମୁଖ୍ୟ:
+                            {% else %}
+                                Head:
+                            {% endif %}
+                        </strong> {{ ngo["NGO Head Name"] }} <br>
+    
+                        <strong>
+                            {% if language == 'hi' %}
+                                पता:
+                            {% elif language == 'ta' %}
+                                முகவரி:
+                            {% elif language == 'te' %}
+                                చిరునామా:
+                            {% elif language == 'kn' %}
+                                ವಿಳಾಸ:
+                            {% elif language == 'ml' %}
+                                വിലാസം:
+                            {% elif language == 'bn' %}
+                                ঠিকানা:
+                            {% elif language == 'mr' %}
+                                पत्ता:
+                            {% elif language == 'gu' %}
+                                સરનામું:
+                            {% elif language == 'pa' %}
+                                ਪਤਾ:
+                            {% elif language == 'or' %}
+                                ଠିକଣା:
+                            {% else %}
+                                Address:
+                            {% endif %}
+                        </strong> {{ ngo["Address"] }} <br>
+    
+                        <strong>
+                            {% if language == 'hi' %}
+                                मोबाइल:
+                            {% elif language == 'ta' %}
+                                மொபைல்:
+                            {% elif language == 'te' %}
+                                మొబైల్:
+                            {% elif language == 'kn' %}
+                                ಮೊಬೈಲ್:
+                            {% elif language == 'ml' %}
+                                മൊബൈൽ:
+                            {% elif language == 'bn' %}
+                                মোবাইল:
+                            {% elif language == 'mr' %}
+                                मोबाइल:
+                            {% elif language == 'gu' %}
+                                મોબાઇલ:
+                            {% elif language == 'pa' %}
+                                ਮੋਬਾਇਲ:
+                            {% elif language == 'or' %}
+                                ମୋବାଇଲ୍:
+                            {% else %}
+                                Mobile:
+                            {% endif %}
+                        </strong> {{ ngo["Mobile"] }} <br>
+    
+                        <strong>
+                            {% if language == 'hi' %}
+                                ईमेल:
+                            {% elif language == 'ta' %}
+                                மின்னஞ்சல்:
+                            {% elif language == 'te' %}
+                                ఇమెయిల్:
+                            {% elif language == 'kn' %}
+                                ಇಮೇಲ್:
+                            {% elif language == 'ml' %}
+                                ഇമെയിൽ:
+                            {% elif language == 'bn' %}
+                                ইমেল:
+                            {% elif language == 'mr' %}
+                                ईमेल:
+                            {% elif language == 'gu' %}
+                                ઇમેઇલ:
+                            {% elif language == 'pa' %}
+                                ਈਮੇਲ:
+                            {% elif language == 'or' %}
+                                ଇମେଲ୍:
+                            {% else %}
+                                Email:
+                            {% endif %}
+                        </strong> <span>{{ ngo["Email id"] }}</span> <br>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <!-- Display "No NGOs found" message in the selected language -->
+            <p>
+                {% if language == 'hi' %}
+                    इस शहर में कोई एनजीओ नहीं मिला।
+                {% elif language == 'ta' %}
+                    இந்த நகரத்தில் எந்த என்.ஜி.ஓவும் கிடைக்கவில்லை.
+                {% elif language == 'te' %}
+                    ఈ నగరంలో ఎన్.జి.ఓలు లేవు.
+                {% elif language == 'kn' %}
+                    ಈ ನಗರದಲ್ಲಿ ಯಾವುದೇ ಎನ್ಜಿಒಗಳು ಕಂಡುಬಂದಿಲ್ಲ.
+                {% elif language == 'ml' %}
+                    ഈ നഗരത്തിൽ ഒരു എൻജിഒയും കണ്ടെത്തിയില്ല.
+                {% elif language == 'bn' %}
+                    এই শহরে কোনো এনজিও পাওয়া যায়নি।
+                {% elif language == 'mr' %}
+                    या शहरात कोणतेही एनजीओ सापडले नाही.
+                {% elif language == 'gu' %}
+                    આ શહેરમાં કોઈ એનજીઓ મળ્યું નથી.
+                {% elif language == 'pa' %}
+                    ਇਸ ਸ਼ਹਿਰ ਵਿੱਚ ਕੋਈ ਐਨਜੀਓ ਨਹੀਂ ਮਿਲਿਆ।
+                {% elif language == 'or' %}
+                    ଏହି ସହରରେ କୌଣସି ଏନଜିଓ ମିଳିଲା ନାହିଁ।
+                {% else %}
+                    No NGOs found for this city.
+                {% endif %}
+            </p>
+        {% endif %}
+    
+        <!-- Back button with language-specific text -->
+        <a href="/sngo">
+            {% if language == 'hi' %}
+                वापस
+            {% elif language == 'ta' %}
+                திரும்பு
+            {% elif language == 'te' %}
+                తిరిగి
+            {% elif language == 'kn' %}
+                ಹಿಂದೆ
+            {% elif language == 'ml' %}
+                തിരികെ
+            {% elif language == 'bn' %}
+                ফিরে যান
+            {% elif language == 'mr' %}
+                मागे
+            {% elif language == 'gu' %}
+                પાછા
+            {% elif language == 'pa' %}
+                ਵਾਪਸ
+            {% elif language == 'or' %}
+                ପଛକୁ
+            {% else %}
+                Back
+            {% endif %}
+        </a>
+    </div>
+    <script>
+        // JavaScript to trim extra spaces from email addresses
+        document.addEventListener("DOMContentLoaded", function () {
+            const ngoItems = document.querySelectorAll(".ngo-list li");
+            ngoItems.forEach((item) => {
+                const emailElement = item.querySelector("strong:last-of-type + br + span");
+                if (emailElement) {
+                    emailElement.textContent = emailElement.textContent.replace(/\s+/g, ""); // Remove all spaces
+                }
+            });
+        });
+
+        // Background elements animation
+        const bgElements = [
+            { icon: 'fa-stethoscope', color: '#4a90e2' },
+            { icon: 'fa-band-aid', color: '#f39c12' },
+            { icon: 'fa-syringe', color: '#e74c3c' },
+            { icon: 'fa-pills', color: '#2ecc71' },
+            { icon: 'fa-teddy-bear', color: '#9b59b6' },
+            { icon: 'fa-hospital', color: '#3498db' },
+            { icon: 'fa-ambulance', color: '#e67e22' },
+            { icon: 'fa-heart', color: '#e74c3c' },
+            { icon: 'fa-user-md', color: '#34495e' },
+            { icon: 'fa-wheelchair', color: '#16a085' }
+        ];
+
+        const bgContainer = document.getElementById('bg-elements');
+
+        for (let i = 0; i < 20; i++) {
+            const element = document.createElement('div');
+            const randomElement = bgElements[Math.floor(Math.random() * bgElements.length)];
+            element.className = 'bg-element';
+            element.innerHTML = `<i class="fas ${randomElement.icon}"></i>`;
+            element.style.color = randomElement.color;
+            element.style.fontSize = `${Math.random() * 40 + 20}px`;
+            element.style.left = `${Math.random() * 100}%`;
+            element.style.top = `${Math.random() * 100}%`;
+            element.style.animationDuration = `${Math.random() * 10 + 10}s`;
+            element.style.animationDelay = `${Math.random() * 5}s`;
+            bgContainer.appendChild(element);
+        }
+    </script>
+</body>
+</html>

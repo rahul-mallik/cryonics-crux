@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find NGOs</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Prevent scrolling on the body and html */
+        html,
+        body {
+            overflow: hidden;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white !important;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Background Styling */
+        body {
+            background: linear-gradient(90deg, #e6f3ff, #f0f9ff);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Background elements */
+        .bg-element {
+            position: absolute;
+            opacity: 0.1;
+            z-index: -1;
+            animation: float 15s infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            25% {
+                transform: translateY(-20px) rotate(5deg);
+            }
+
+            50% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            75% {
+                transform: translateY(20px) rotate(-5deg);
+            }
+        }
+
+        /* Main Container */
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            margin: 20px;
+            overflow: hidden;
+        }
+
+        /* Headings */
+        h1 {
+            font-size: 26px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        /* Form Styling */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Labels */
+        label {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: left;
+            color: #444;
+        }
+
+        /* Input Fields */
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+
+        /* Button Styling */
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: black;
+        }
+
+        /* Error Message */
+        .error {
+            color: red;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        /* Language Selector Styling */
+        .language-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .language-button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .language-button:hover {
+            background-color: #0056b3;
+        }
+
+        .language-options {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            right: 0;
+            top: 50px;
+            width: 100%;
+            /* Match the width of the "Select Language" button */
+            text-align: center;
+            /* Center the text */
+        }
+
+        .language-options a {
+            display: block;
+            padding: 10px;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+            text-align: center;
+            /* Center the text */
+        }
+
+        .language-options a:hover {
+            background-color: #f0f0f0;
+        }
+
+        .language-options.visible {
+            display: block;
+        }
+
+        .language-options a.selected {
+            background-color: #007BFF;
+            border-radius: 5px;
+            color: white;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body>
+    <!-- Language Selector Dropdown -->
+    <div class="language-selector">
+        <button class="language-button" onclick="toggleLanguageOptions()">🌐 Select Language</button>
+        <div class="language-options" id="language-options">
+            <a href="#" data-lang="en" onclick="translatePage('en')">English</a>
+            <a href="#" data-lang="hi" onclick="translatePage('hi')">हिंदी (Hindi)</a>
+            <a href="#" data-lang="or" onclick="translatePage('or')">ଓଡ଼ିଆ (Odia)</a>
+            <a href="#" data-lang="ta" onclick="translatePage('ta')">தமிழ் (Tamil)</a>
+            <a href="#" data-lang="te" onclick="translatePage('te')">తెలుగు (Telugu)</a>
+            <a href="#" data-lang="kn" onclick="translatePage('kn')">ಕನ್ನಡ (Kannada)</a>
+            <a href="#" data-lang="ml" onclick="translatePage('ml')">മലയാളം (Malayalam)</a>
+            <a href="#" data-lang="bn" onclick="translatePage('bn')">বাংলা (Bengali)</a>
+            <a href="#" data-lang="mr" onclick="translatePage('mr')">मराठी (Marathi)</a>
+            <a href="#" data-lang="gu" onclick="translatePage('gu')">ગુજરાતી (Gujarati)</a>
+            <a href="#" data-lang="pa" onclick="translatePage('pa')">ਪੰਜਾਬੀ (Punjabi)</a>
+        </div>
+    </div>
+    <div id="bg-elements"></div>
+
+    <a href="{{ url_for('sub_page') }}" class="back-button">← Back</a>
+    <div class="container">
+        <h1>Find NGOs That Can Help</h1>
+        <p>Enter your details to find NGOs that support underprivileged families.</p>
+
+        <form action="/ngor" method="POST">
+            <label for="name">Your Name</label>
+            <input type="text" id="name" name="name" placeholder="Enter your name" required>
+
+            <label for="city">Enter Your District/City</label>
+            <input type="text" id="city" name="city" placeholder="Enter your city/district" required>
+
+            <!-- Hidden input to store the selected language -->
+            <input type="hidden" id="language" name="language" value="en">
+
+            <button type="submit">Search NGOs</button>
+        </form>
+
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+    </div>
+
+    <script>
+        const bgElements = [
+            { icon: 'fa-stethoscope', color: '#4a90e2' },
+            { icon: 'fa-band-aid', color: '#f39c12' },
+            { icon: 'fa-syringe', color: '#e74c3c' },
+            { icon: 'fa-pills', color: '#2ecc71' },
+            { icon: 'fa-teddy-bear', color: '#9b59b6' },
+            { icon: 'fa-hospital', color: '#3498db' },
+            { icon: 'fa-ambulance', color: '#e67e22' },
+            { icon: 'fa-heart', color: '#e74c3c' },
+            { icon: 'fa-user-md', color: '#34495e' },
+            { icon: 'fa-wheelchair', color: '#16a085' }
+        ];
+
+        const bgContainer = document.getElementById('bg-elements');
+
+        for (let i = 0; i < 20; i++) {
+            const element = document.createElement('div');
+            const randomElement = bgElements[Math.floor(Math.random() * bgElements.length)];
+            element.className = 'bg-element';
+            element.innerHTML = `<i class="fas ${randomElement.icon}"></i>`;
+            element.style.color = randomElement.color;
+            element.style.fontSize = `${Math.random() * 40 + 20}px`;
+            element.style.left = `${Math.random() * 100}%`;
+            element.style.top = `${Math.random() * 100}%`;
+            element.style.animationDuration = `${Math.random() * 10 + 10}s`;
+            element.style.animationDelay = `${Math.random() * 5}s`;
+            bgContainer.appendChild(element);
+        }
+
+        // Function to toggle language options visibility
+        function toggleLanguageOptions() {
+            const languageOptions = document.getElementById('language-options');
+            languageOptions.classList.toggle('visible');
+        }
+
+        // Function to highlight the selected language
+        function highlightSelectedLanguage(lang) {
+            const languageOptions = document.querySelectorAll('.language-options a');
+            languageOptions.forEach(option => {
+                option.classList.remove('selected'); // Remove the 'selected' class from all options
+                if (option.getAttribute('data-lang') === lang) {
+                    option.classList.add('selected'); // Add the 'selected' class to the clicked option
+                }
+            });
+        }
+
+        // Function to translate the page
+        function translatePage(lang) {
+            fetch('/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ lang: lang }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.translated_text) {
+                        // Update the page content with translated text
+                        document.querySelector('h1').innerText = data.translated_text.title;
+                        document.querySelector('p').innerText = data.translated_text.description;
+                        document.querySelector('label[for="name"]').innerText = data.translated_text.name_label;
+                        document.querySelector('label[for="city"]').innerText = data.translated_text.city_label;
+                        document.querySelector('button[type="submit"]').innerText = data.translated_text.button_text;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+
+
+            const languageInput = document.getElementById('language');
+            languageInput.value = lang;
+            // Highlight the selected language
+            highlightSelectedLanguage(lang);
+
+            // Hide the language options after selection
+            toggleLanguageOptions();
+        }
+
+        // Highlight the default language (English) on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            highlightSelectedLanguage('en'); // Set default language to English
+        });
+    </script>
+</body>
+
+</html>
