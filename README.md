@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/0849d7af-d8ca-4078-bc48-6c8303d720bf)# Cryonics-Crux 🍼🤖  
+# Cryonics-Crux 🍼🤖  
 - beacuse every cry matters
 ### AI-Powered Infant Care & Cry Analysis System  
 
