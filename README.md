@@ -47,9 +47,9 @@ Additionally, the **Helping Hand** feature extends support to **underprivileged 
 ![Geometrical Preference Test for ASD](https://cdn.discordapp.com/attachments/899208092888207370/1343459619455897641/IMG-20250221-WA0016.jpg?ex=67bd59c5&is=67bc0845&hm=fe3da432c5ade2e45e13e4c74670aeaefb8d212124733fe7f3c92082a32067ed&) 
 )
 🔹 Cerebral Palsy Detection
-![Cerebral Palsy Detection]() 
+![Cerebral Palsy Detection](https://media.discordapp.net/attachments/899208092888207370/1343459619141320754/IMG-20250221-WA0014.jpg?ex=67bd59c5&is=67bc0845&hm=7ff5d91b434493c6a30a4f96999a16f9053d757f4fc7f6e089eedfcd63f43269&) 
 )
 🔹 Cry Type Detection
-![Cry Type Detection](static/IMG-20250221-WA0015.jpg) 
+![Cry Type Detection](https://cdn.discordapp.com/attachments/899208092888207370/1343459618847981589/IMG-20250221-WA0015.jpg?ex=67bd59c5&is=67bc0845&hm=06dd74f6075b0e3ac613771958eedb18634345d4f760404f545a314403ce3260&) 
 🔹 Go through our website for more insigths
 ---
